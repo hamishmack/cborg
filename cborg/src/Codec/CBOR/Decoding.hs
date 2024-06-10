@@ -113,6 +113,11 @@ module Codec.CBOR.Decoding
 
 #include "cbor.h"
 
+#if defined(ARCH_32bit)
+#if !MIN_VERSION_ghc_prim(0,8,0)
+import           GHC.IntWord64
+#endif
+#endif
 import           GHC.Exts
 import           GHC.Word
 import           GHC.Int
@@ -157,7 +162,7 @@ data DecodeAction s a
     | ConsumeTag     (Word# -> ST s (DecodeAction s a))
 
 -- 64bit variants for 32bit machines
-#if defined(ARCH_32bit) && !defined(ghcjs_HOST_OS)
+#if defined(ARCH_32bit)
     | ConsumeWord64    (Word64# -> ST s (DecodeAction s a))
     | ConsumeNegWord64 (Word64# -> ST s (DecodeAction s a))
     | ConsumeInt64     (Int64#  -> ST s (DecodeAction s a))
@@ -188,7 +193,7 @@ data DecodeAction s a
 
     | PeekTokenType  (TokenType -> ST s (DecodeAction s a))
     | PeekAvailable  (Int#      -> ST s (DecodeAction s a))
-#if defined(ARCH_32bit) && !defined(ghcjs_HOST_OS)
+#if defined(ARCH_32bit)
     | PeekByteOffset (Int64#    -> ST s (DecodeAction s a))
 #else
     | PeekByteOffset (Int#      -> ST s (DecodeAction s a))
@@ -208,7 +213,7 @@ data DecodeAction s a
     | ConsumeMapLenCanonical  (Int#  -> ST s (DecodeAction s a))
     | ConsumeTagCanonical     (Word# -> ST s (DecodeAction s a))
 
-#if defined(ARCH_32bit) && !defined(ghcjs_HOST_OS)
+#if defined(ARCH_32bit)
     | ConsumeWord64Canonical    (Word64# -> ST s (DecodeAction s a))
     | ConsumeNegWord64Canonical (Word64# -> ST s (DecodeAction s a))
     | ConsumeInt64Canonical     (Int64#  -> ST s (DecodeAction s a))
@@ -343,11 +348,16 @@ toWord64 n = W64# (wordToWord64# n)
 toInt8   n = I8#  n
 toInt16  n = I16# n
 toInt32  n = I32# n
-toInt64  n = I64# n
 toWord8  n = W8#  n
 toWord16 n = W16# n
 toWord32 n = W32# n
+#if WORD_SIZE_IN_BITS == 64
+toInt64  n = I64# n
 toWord64 n = W64# n
+#else
+toInt64  n = I64# (intToInt64# n)
+toWord64 n = W64# (wordToWord64# n)
+#endif
 #endif
 
 -- $canonical
@@ -420,10 +430,10 @@ decodeWord32 = Decoder (\k -> return (ConsumeWord32 (\w# -> k (toWord32 w#))))
 decodeWord64 :: Decoder s Word64
 {-# INLINE decodeWord64 #-}
 decodeWord64 =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeWord (\w# -> k (toWord64 w#))))
 #else
-  Decoder (\k -> return (ConsumeWord64 (\w64# -> k (toWord64 w64#))))
+  Decoder (\k -> return (ConsumeWord64 (\w64# -> k (W64# w64#))))
 #endif
 
 -- | Decode a negative 'Word'.
@@ -439,10 +449,10 @@ decodeNegWord = Decoder (\k -> return (ConsumeNegWord (\w# -> k (W# w#))))
 decodeNegWord64 :: Decoder s Word64
 {-# INLINE decodeNegWord64 #-}
 decodeNegWord64 =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeNegWord (\w# -> k (toWord64 w#))))
 #else
-  Decoder (\k -> return (ConsumeNegWord64 (\w64# -> k (toWord64 w64#))))
+  Decoder (\k -> return (ConsumeNegWord64 (\w64# -> k (W64# w64#))))
 #endif
 
 -- | Decode an 'Int'.
@@ -479,10 +489,10 @@ decodeInt32 = Decoder (\k -> return (ConsumeInt32 (\w# -> k (toInt32 w#))))
 decodeInt64 :: Decoder s Int64
 {-# INLINE decodeInt64 #-}
 decodeInt64 =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeInt (\n# -> k (toInt64 n#))))
 #else
-  Decoder (\k -> return (ConsumeInt64 (\n64# -> k (toInt64 n64#))))
+  Decoder (\k -> return (ConsumeInt64 (\n64# -> k (I64# n64#))))
 #endif
 
 -- | Decode canonical representation of a 'Word'.
@@ -519,10 +529,10 @@ decodeWord32Canonical = Decoder (\k -> return (ConsumeWord32Canonical (\w# -> k 
 decodeWord64Canonical :: Decoder s Word64
 {-# INLINE decodeWord64Canonical #-}
 decodeWord64Canonical =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeWordCanonical (\w# -> k (toWord64 w#))))
 #else
-  Decoder (\k -> return (ConsumeWord64Canonical (\w64# -> k (toWord64 w64#))))
+  Decoder (\k -> return (ConsumeWord64Canonical (\w64# -> k (W64# w64#))))
 #endif
 
 -- | Decode canonical representation of a negative 'Word'.
@@ -538,10 +548,10 @@ decodeNegWordCanonical = Decoder (\k -> return (ConsumeNegWordCanonical (\w# -> 
 decodeNegWord64Canonical :: Decoder s Word64
 {-# INLINE decodeNegWord64Canonical #-}
 decodeNegWord64Canonical =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeNegWordCanonical (\w# -> k (toWord64 w#))))
 #else
-  Decoder (\k -> return (ConsumeNegWord64Canonical (\w64# -> k (toWord64 w64#))))
+  Decoder (\k -> return (ConsumeNegWord64Canonical (\w64# -> k (W64# w64#))))
 #endif
 
 -- | Decode canonical representation of an 'Int'.
@@ -578,10 +588,10 @@ decodeInt32Canonical = Decoder (\k -> return (ConsumeInt32Canonical (\w# -> k (t
 decodeInt64Canonical :: Decoder s Int64
 {-# INLINE decodeInt64Canonical #-}
 decodeInt64Canonical =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeIntCanonical (\n# -> k (toInt64 n#))))
 #else
-  Decoder (\k -> return (ConsumeInt64Canonical (\n64# -> k (toInt64 n64#))))
+  Decoder (\k -> return (ConsumeInt64Canonical (\n64# -> k (I64# n64#))))
 #endif
 
 -- | Decode an 'Integer'.
@@ -752,9 +762,9 @@ decodeTag = Decoder (\k -> return (ConsumeTag (\w# -> k (W# w#))))
 decodeTag64 :: Decoder s Word64
 {-# INLINE decodeTag64 #-}
 decodeTag64 =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeTag (\w# -> k (W64#
-#if MIN_VERSION_base(4,17,0)
+#if MIN_VERSION_base(4,17,0) || (defined(ARCH_32bit) && !MIN_VERSION_ghc_prim(0,8,0))
     (wordToWord64# w#)
 #else
     w#
@@ -779,9 +789,9 @@ decodeTagCanonical = Decoder (\k -> return (ConsumeTagCanonical (\w# -> k (W# w#
 decodeTag64Canonical :: Decoder s Word64
 {-# INLINE decodeTag64Canonical #-}
 decodeTag64Canonical =
-#if defined(ARCH_64bit) || defined(ghcjs_HOST_OS)
+#if defined(ARCH_64bit)
   Decoder (\k -> return (ConsumeTagCanonical (\w# -> k (W64#
-#if MIN_VERSION_base(4,17,0)
+#if MIN_VERSION_base(4,17,0) || (defined(ARCH_32bit) && !MIN_VERSION_ghc_prim(0,8,0))
     (wordToWord64# w#)
 #else
     w#

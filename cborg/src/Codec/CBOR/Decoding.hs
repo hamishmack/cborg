@@ -996,7 +996,7 @@ type ByteOffset = Int64
 -- @since 0.2.2.0
 peekByteOffset :: Decoder s ByteOffset
 peekByteOffset = Decoder (\k -> return (PeekByteOffset (\off# -> k (I64#
-#if MIN_VERSION_base(4,17,0)
+#if MIN_VERSION_base(4,17,0) && !defined(ARCH_32bit)
         (intToInt64# off#)
 #else
         off#

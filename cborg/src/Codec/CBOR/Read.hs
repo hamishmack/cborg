@@ -1275,7 +1275,7 @@ go_slow da bs !offset = do
 
     SlowPeekByteOffset bs' k ->
       lift
-#if MIN_VERSION_base(4,17,0)
+#if MIN_VERSION_base(4,17,0) && !defined(ARCH_32bit)
         (k (int64ToInt# off#))
 #else
         (k off#)
@@ -1385,7 +1385,7 @@ go_slow_overlapped da sz bs_cur bs_next !offset =
       SlowPeekByteOffset bs_empty k ->
         assert (BS.null bs_empty) $ do
         lift
-#if MIN_VERSION_base(4,17,0)
+#if MIN_VERSION_base(4,17,0) && !defined(ARCH_32bit)
           (k (int64ToInt# off#))
 #else
           (k off#)
